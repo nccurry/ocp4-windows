@@ -1,0 +1,45 @@
+#!/usr/bin/ansible-playbook
+- hosts: localhost
+  become: false
+  gather_facts: false
+  vars_files:
+  - vars/main.yml
+  pre_tasks:
+  - name: Install prerequisite packages
+    package:
+      name: "{{ item }}"
+    loop:
+    - qemu-utils
+    tags:
+    - never
+    - prerequisites
+  tasks:
+  - name: Check for existing cluster network
+    shell: "VBoxManage.exe natnetwork list {{ cluster_name }}"
+    changed_when: false
+    register: net_list
+
+  - name: Create cluster network
+    shell: "VBoxManage.exe natnetwork add
+            --netname {{ cluster_name }}
+            --network '10.0.10.0/24'
+            --enable
+            --dhcp on"
+    when: "'0 networks found' in net_list.stdout"
+
+  - name: Create cluster network dhcp
+    shell: "VBoxManage.exe dhcpserver add 
+            --netname {{ cluster_name }}
+            --ip 10.0.10.3 
+            --lowerip 10.0.10.10
+            --upperip 10.0.10.254
+            --netmask 255.255.255.0"
+
+  - name: Enable cluster network dhcp
+    shell: "VBoxManage.exe dhcpserver modify 
+            --netname {{ cluster_name }}
+            --enable"
+
+## Convert qcow2 to vdi
+#sudo apt-get install -y qemu-utils
+#qemu-img convert -O vdi <qcow2-path> fedora.vdi
